@@ -9,19 +9,19 @@ import { parseTemplateJson, todayDateString } from "../utils/template";
 export function registerCommands(plugin: YunxiaoPlugin): void {
 	plugin.addCommand({
 		id: "yunxiao-test-connection",
-		name: "Yunxiao: Test connection",
+		name: "云效：测试连接",
 		callback: async () => {
 			await runSafely(async () => {
 				const user = await plugin.client.getUserByToken();
 				const displayName = user.name ?? user.nickName ?? user.userId ?? user.id ?? "unknown";
-				new Notice(`云效连接成功，当前用户: ${displayName}`);
+				new Notice(`云效连接成功，当前用户：${displayName}`);
 			});
 		},
 	});
 
 	plugin.addCommand({
 		id: "yunxiao-sync-workitems-to-note",
-		name: "Yunxiao: Sync member workitems to note",
+		name: "云效：同步成员工作项到当前笔记",
 		callback: async () => {
 			await runSafely(async () => {
 				const assignee = await resolveAssignee(plugin);
@@ -36,41 +36,41 @@ export function registerCommands(plugin: YunxiaoPlugin): void {
 				const result = await plugin.client.searchWorkitems(payload);
 				const markdown = buildWorkitemListMarkdown(result.items, `${assignee.name} 的云效工作项`);
 				appendToActiveNote(plugin, markdown);
-				new Notice(`已写入 ${result.items.length} 条工作项（${assignee.name}）到当前笔记`);
+				new Notice(`已写入 ${result.items.length} 条工作项到当前笔记`);
 			});
 		},
 	});
 
 	plugin.addCommand({
 		id: "yunxiao-update-workitem-status",
-		name: "Yunxiao: Update workitem status",
+		name: "云效：更新工作项状态",
 		callback: async () => {
 			await runSafely(async () => {
-				const workitemId = await requestText(plugin.app, "输入工作项 ID", "例如: 123456");
+				const workitemId = await requestText(plugin.app, "输入工作项 ID", "例如：123456");
 				if (!workitemId) {
 					return;
 				}
-				const status = await requestText(plugin.app, "输入目标状态", "例如: 进行中");
+				const status = await requestText(plugin.app, "输入目标状态", "例如：进行中");
 				if (!status) {
 					return;
 				}
 				const payload = parseTemplateJson(plugin.settings.updateStatusPayloadTemplate, { status });
 				await plugin.client.updateWorkitem(workitemId, payload);
-				new Notice(`工作项 ${workitemId} 已更新为状态: ${status}`);
+				new Notice(`工作项 ${workitemId} 已更新为状态：${status}`);
 			});
 		},
 	});
 
 	plugin.addCommand({
 		id: "yunxiao-log-effort",
-		name: "Yunxiao: Log effort",
+		name: "云效：登记工时",
 		callback: async () => {
 			await runSafely(async () => {
-				const workitemId = await requestText(plugin.app, "输入工作项 ID", "例如: 123456");
+				const workitemId = await requestText(plugin.app, "输入工作项 ID", "例如：123456");
 				if (!workitemId) {
 					return;
 				}
-				const hoursText = await requestText(plugin.app, "输入工时（小时）", "例如: 2.5");
+				const hoursText = await requestText(plugin.app, "输入工时（小时）", "例如：2.5");
 				if (!hoursText) {
 					return;
 				}
@@ -78,7 +78,7 @@ export function registerCommands(plugin: YunxiaoPlugin): void {
 				if (!Number.isFinite(hours) || hours <= 0) {
 					throw new Error("工时必须是大于 0 的数字。");
 				}
-				const description = await requestText(plugin.app, "输入工时说明", "例如: 修复需求评审意见");
+				const description = await requestText(plugin.app, "输入工时说明", "例如：修复需求评审问题");
 				if (description === null) {
 					return;
 				}
@@ -93,14 +93,14 @@ export function registerCommands(plugin: YunxiaoPlugin): void {
 					spentAt,
 				});
 				await plugin.client.createEffortRecord(workitemId, payload);
-				new Notice(`已登记工时 ${hours}h 到工作项 ${workitemId}`);
+				new Notice(`已登记 ${hours} 小时工时到工作项 ${workitemId}`);
 			});
 		},
 	});
 
 	plugin.addCommand({
 		id: "yunxiao-generate-daily-report",
-		name: "Yunxiao: Generate daily report",
+		name: "云效：生成日报草稿",
 		callback: async () => {
 			await runSafely(async () => {
 				const assignee = await resolveAssignee(plugin);
@@ -119,6 +119,28 @@ export function registerCommands(plugin: YunxiaoPlugin): void {
 			});
 		},
 	});
+
+	plugin.addCommand({
+		id: "yunxiao-sync-all-api-docs",
+		name: "云效：同步全部接口文档",
+		callback: async () => {
+			await runSafely(async () => {
+				const result = await plugin.client.syncAllApiDocuments(true);
+				new Notice(`接口文档同步完成：保存 ${result.saved} 个，跳过 ${result.skipped} 个，失败 ${result.failed} 个`);
+			});
+		},
+	});
+
+	plugin.addCommand({
+		id: "yunxiao-list-api-functions",
+		name: "云效：显示已封装接口数量",
+		callback: async () => {
+			await runSafely(async () => {
+				const functions = await plugin.client.getAllApiFunctions(true);
+				new Notice(`已根据目录封装 ${functions.length} 个接口函数`);
+			});
+		},
+	});
 }
 
 async function runSafely(task: () => Promise<void>): Promise<void> {
@@ -126,7 +148,7 @@ async function runSafely(task: () => Promise<void>): Promise<void> {
 		await task();
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		new Notice(`Yunxiao 操作失败: ${message}`);
+		new Notice(`云效操作失败：${message}`);
 	}
 }
 
@@ -142,7 +164,7 @@ function appendToActiveNote(plugin: YunxiaoPlugin, markdown: string): void {
 }
 
 function buildWorkitemListMarkdown(items: YunxiaoWorkitem[], title: string): string {
-	const lines = [`## ${title}`, "", `- 生成时间: ${new Date().toLocaleString()}`, `- 数量: ${items.length}`, ""];
+	const lines = [`## ${title}`, "", `- 生成时间：${new Date().toLocaleString()}`, `- 数量：${items.length}`, ""];
 	if (items.length === 0) {
 		lines.push("- 暂无工作项");
 		return lines.join("\n");
@@ -163,18 +185,15 @@ function buildDailyReportMarkdown(items: YunxiaoWorkitem[], ownerName: string): 
 		const status = workitemStatus(item);
 		statusMap.set(status, (statusMap.get(status) ?? 0) + 1);
 	}
-	const lines = [`## 云效日报 ${todayDateString()}`, "", `- 成员: ${ownerName}`, "", "### 工作项概览", `- 总数: ${items.length}`];
+	const lines = [`## 云效日报 ${todayDateString()}`, "", `- 成员：${ownerName}`, "", "### 工作项概览", `- 总数：${items.length}`];
 	for (const [status, count] of statusMap.entries()) {
-		lines.push(`- ${status}: ${count}`);
+		lines.push(`- ${status}：${count}`);
 	}
 	lines.push("", "### 任务清单");
 	for (const item of items) {
 		lines.push(`- ${workitemTitle(item)}（${workitemId(item)}，${workitemStatus(item)}）`);
 	}
-	lines.push("", "### 今日产出");
-	lines.push("- 已完成：");
-	lines.push("- 进行中：");
-	lines.push("- 风险与阻塞：");
+	lines.push("", "### 今日产出", "- 已完成：", "- 进行中：", "- 风险与阻塞：");
 	return lines.join("\n");
 }
 
@@ -183,12 +202,7 @@ async function resolveAssignee(plugin: YunxiaoPlugin): Promise<{ name: string; u
 	if (members.length > 0) {
 		return await requestTeamMember(plugin.app, members);
 	}
-	const assignee = await requestText(
-		plugin.app,
-		"输入负责人 user_id",
-		"例如: user-123",
-		plugin.settings.defaultAssignee,
-	);
+	const assignee = await requestText(plugin.app, "输入负责人 userId", "例如：user-123", plugin.settings.defaultAssignee);
 	if (!assignee) {
 		return null;
 	}

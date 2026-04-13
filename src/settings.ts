@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, normalizePath } from "obsidian";
 import YunxiaoPlugin from "./main";
+import { loadTeamMembersFromFile } from "./utils/team-members";
 
 export interface TeamMember {
 	name: string;
@@ -8,23 +9,28 @@ export interface TeamMember {
 
 export interface YunxiaoPluginSettings {
 	domain: string;
-	organizationId: string;
 	token: string;
 	defaultProjectId: string;
 	defaultAssignee: string;
 	teamMembers: TeamMember[];
+	teamMembersFilePath: string;
 	searchPayloadTemplate: string;
 	updateStatusPayloadTemplate: string;
 	createEffortPayloadTemplate: string;
+	apiCatalogPath: string;
+	apiDocsOutputDir: string;
+	apiDocDetailEndpoint: string;
+	apiDocCookie: string;
+	apiDocHeadersJson: string;
 }
 
 export const DEFAULT_SETTINGS: YunxiaoPluginSettings = {
-	domain: "https://openapi-rdc.aliyuncs.com",
-	organizationId: "",
+	domain: "https://test-cn-shenzhen.devops.aliyuncs.com/",
 	token: "",
 	defaultProjectId: "",
 	defaultAssignee: "",
 	teamMembers: [],
+	teamMembersFilePath: "",
 	searchPayloadTemplate: JSON.stringify(
 		{
 			page: 1,
@@ -51,6 +57,18 @@ export const DEFAULT_SETTINGS: YunxiaoPluginSettings = {
 		null,
 		2,
 	),
+	apiCatalogPath: "",
+	apiDocsOutputDir: normalizePath("yunxiao-api-docs"),
+	apiDocDetailEndpoint: "https://help.aliyun.com/help/json/document_detail.json",
+	apiDocCookie: "",
+	apiDocHeadersJson: JSON.stringify(
+		{
+			accept: "application/json, text/plain, */*",
+			"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+		},
+		null,
+		2,
+	),
 };
 
 export class YunxiaoSettingTab extends PluginSettingTab {
@@ -65,12 +83,14 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		containerEl.createEl("h2", { text: "云效插件设置" });
+
 		new Setting(containerEl)
-			.setName("Service domain")
-			.setDesc("例如: https://openapi-rdc.aliyuncs.com")
+			.setName("服务域名")
+			.setDesc("例如：https://test-cn-shenzhen.devops.aliyuncs.com/")
 			.addText((text) =>
 				text
-					.setPlaceholder("https://openapi-rdc.aliyuncs.com")
+					.setPlaceholder("https://test-cn-shenzhen.devops.aliyuncs.com/")
 					.setValue(this.plugin.settings.domain)
 					.onChange(async (value) => {
 						this.plugin.settings.domain = value.trim();
@@ -79,21 +99,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Organization ID")
-			.setDesc("中心版通常需要配置 organizationId。")
-			.addText((text) =>
-				text
-					.setPlaceholder("your-organization-id")
-					.setValue(this.plugin.settings.organizationId)
-					.onChange(async (value) => {
-						this.plugin.settings.organizationId = value.trim();
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName("Personal access token")
-			.setDesc("云效个人访问令牌，会作为 x-yunxiao-token 请求头发送。")
+			.setName("个人访问令牌")
+			.setDesc("作为 x-yunxiao-token 请求头发送。")
 			.addText((text) => {
 				text.inputEl.type = "password";
 				text
@@ -106,8 +113,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Default project ID")
-			.setDesc("查询工作项时用于模板变量 ${projectId}。")
+			.setName("默认项目 ID")
+			.setDesc("用于工作项搜索模板变量 ${projectId}。")
 			.addText((text) =>
 				text
 					.setPlaceholder("project-id")
@@ -119,8 +126,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Default assignee")
-			.setDesc("查询工作项时用于模板变量 ${assignee}。可设置为你自己或一个默认成员的 user_id。")
+			.setName("默认负责人")
+			.setDesc("用于工作项搜索模板变量 ${assignee}。")
 			.addText((text) =>
 				text
 					.setPlaceholder("user-id")
@@ -131,10 +138,43 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		containerEl.createEl("h3", { text: "团队成员管理" });
+		containerEl.createEl("h3", { text: "团队成员" });
 		containerEl.createEl("p", {
-			text: "用于管理成员任务时快速选择负责人。格式为：姓名 + user_id。",
+			text: "维护姓名和 userId，便于命令中快速选择负责人。",
 		});
+
+		new Setting(containerEl)
+			.setName("Team members file")
+			.setDesc("Path in vault. Supports JSON list and text lines: name,userId")
+			.addText((text) =>
+				text
+					.setPlaceholder("team-members.json")
+					.setValue(this.plugin.settings.teamMembersFilePath)
+					.onChange(async (value) => {
+						const trimmed = value.trim();
+						this.plugin.settings.teamMembersFilePath = trimmed ? normalizePath(trimmed) : "";
+						await this.plugin.saveSettings();
+					}),
+			)
+			.addButton((button) =>
+				button
+					.setButtonText("Load file")
+					.onClick(async () => {
+						try {
+							const members = await loadTeamMembersFromFile(
+								this.plugin.app.vault.adapter,
+								this.plugin.settings.teamMembersFilePath,
+							);
+							this.plugin.settings.teamMembers = members;
+							await this.plugin.saveSettings();
+							new Notice(`Loaded ${members.length} team members`);
+							this.display();
+						} catch (error) {
+							const message = error instanceof Error ? error.message : String(error);
+							new Notice(`Failed to load team members: ${message}`);
+						}
+					}),
+			);
 
 		this.plugin.settings.teamMembers.forEach((member, index) => {
 			new Setting(containerEl)
@@ -154,7 +194,7 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("user_id")
+						.setPlaceholder("userId")
 						.setValue(member.userId)
 						.onChange(async (value) => {
 							const target = this.plugin.settings.teamMembers[index];
@@ -178,8 +218,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 		});
 
 		new Setting(containerEl)
-			.setName("新增团队成员")
-			.setDesc("点击后新增一行成员配置。")
+			.setName("新增成员")
+			.setDesc("添加一行新的团队成员配置。")
 			.addButton((button) =>
 				button
 					.setButtonText("添加成员")
@@ -191,8 +231,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Search payload template (JSON)")
-			.setDesc("用于 SearchWorkitems 请求体，可使用 ${projectId}、${assignee}、${today}。")
+			.setName("搜索工作项模板")
+			.setDesc("用于搜索工作项，请使用合法 JSON。支持 ${projectId}、${assignee}、${today}。")
 			.addTextArea((text) =>
 				text
 					.setValue(this.plugin.settings.searchPayloadTemplate)
@@ -203,8 +243,8 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Update status payload template (JSON)")
-			.setDesc("用于 UpdateWorkitem 请求体，可使用 ${status}。")
+			.setName("更新状态模板")
+			.setDesc("用于更新工作项状态。支持 ${status}。")
 			.addTextArea((text) =>
 				text
 					.setValue(this.plugin.settings.updateStatusPayloadTemplate)
@@ -215,13 +255,78 @@ export class YunxiaoSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Create effort payload template (JSON)")
-			.setDesc("用于 CreateEffortRecord 请求体，可使用 ${description}、${minutes}、${spentAt}。")
+			.setName("登记工时模板")
+			.setDesc("用于创建工时记录。支持 ${description}、${minutes}、${spentAt}。")
 			.addTextArea((text) =>
 				text
 					.setValue(this.plugin.settings.createEffortPayloadTemplate)
 					.onChange(async (value) => {
 						this.plugin.settings.createEffortPayloadTemplate = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		containerEl.createEl("h3", { text: "接口文档" });
+
+		new Setting(containerEl)
+			.setName("接口目录文件")
+			.setDesc("默认读取插件目录中的 所有接口信息.txt。")
+			.addText((text) =>
+				text
+					.setPlaceholder("所有接口信息.txt")
+					.setValue(this.plugin.settings.apiCatalogPath)
+					.onChange(async (value) => {
+						this.plugin.settings.apiCatalogPath = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("接口文档输出目录")
+			.setDesc("批量同步接口文档时的保存目录。")
+			.addText((text) =>
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.apiDocsOutputDir)
+					.setValue(this.plugin.settings.apiDocsOutputDir)
+					.onChange(async (value) => {
+						this.plugin.settings.apiDocsOutputDir = normalizePath(value.trim() || DEFAULT_SETTINGS.apiDocsOutputDir);
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("接口详情地址")
+			.setDesc("来自 单个接口样例.txt。")
+			.addText((text) =>
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.apiDocDetailEndpoint)
+					.setValue(this.plugin.settings.apiDocDetailEndpoint)
+					.onChange(async (value) => {
+						this.plugin.settings.apiDocDetailEndpoint = value.trim() || DEFAULT_SETTINGS.apiDocDetailEndpoint;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("接口文档 Cookie")
+			.setDesc("如果访问阿里云帮助文档需要登录态，可以填写 Cookie。")
+			.addTextArea((text) =>
+				text
+					.setValue(this.plugin.settings.apiDocCookie)
+					.onChange(async (value) => {
+						this.plugin.settings.apiDocCookie = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName("接口文档请求头 JSON")
+			.setDesc("额外请求头，需为 JSON 对象。")
+			.addTextArea((text) =>
+				text
+					.setValue(this.plugin.settings.apiDocHeadersJson)
+					.onChange(async (value) => {
+						this.plugin.settings.apiDocHeadersJson = value;
 						await this.plugin.saveSettings();
 					}),
 			);

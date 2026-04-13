@@ -15,7 +15,7 @@ export class MemberPickerModal extends FuzzySuggestModal<MemberChoice> {
 		super(app);
 		this.choices = choices;
 		this.onSubmit = onSubmit;
-		this.setPlaceholder("选择成员（可搜索姓名或 user_id）");
+		this.setPlaceholder("选择成员，可按姓名或 userId 搜索");
 	}
 
 	getItems(): MemberChoice[] {

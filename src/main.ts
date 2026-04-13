@@ -1,7 +1,8 @@
 import { Plugin } from "obsidian";
 import { YunxiaoClient } from "./yunxiao/client";
 import { registerCommands } from "./commands";
-import { DEFAULT_SETTINGS, type TeamMember, type YunxiaoPluginSettings, YunxiaoSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, type YunxiaoPluginSettings, YunxiaoSettingTab } from "./settings";
+import { normalizeTeamMembers } from "./utils/team-members";
 
 export default class YunxiaoPlugin extends Plugin {
 	settings: YunxiaoPluginSettings;
@@ -19,26 +20,11 @@ export default class YunxiaoPlugin extends Plugin {
 		this.settings = {
 			...loaded,
 			teamMembers: normalizeTeamMembers(loaded.teamMembers),
+			teamMembersFilePath: typeof loaded.teamMembersFilePath === "string" ? loaded.teamMembersFilePath : "",
 		};
 	}
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
-}
-
-function normalizeTeamMembers(input: unknown): TeamMember[] {
-	if (!Array.isArray(input)) {
-		return [];
-	}
-	const members: TeamMember[] = [];
-	for (const item of input) {
-		if (!item || typeof item !== "object") {
-			continue;
-		}
-		const name = "name" in item && typeof item.name === "string" ? item.name : "";
-		const userId = "userId" in item && typeof item.userId === "string" ? item.userId : "";
-		members.push({ name, userId });
-	}
-	return members;
 }

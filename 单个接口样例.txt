@@ -1,0 +1,44 @@
+import requests
+
+
+headers = {
+    "Host": "help.aliyun.com",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    "accept": "application/json, text/plain, */*",
+    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+    "sec-ch-ua-mobile": "?0",
+    "bx-v": "2.5.36",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://help.aliyun.com/zh/yunxiao/developer-reference/listdepartmentancestors-query-the-list-of-all-parent-departments-of-a-department-in-an-organization?spm=a2c4g.11186623.help-menu-150040.d_5_0_3_2_2.606f3ef0qMhENn&scm=20140722.H_2853875._.OR_help-T_cn~zh-V_1",
+    "accept-language": "zh-CN,zh;q=0.9",
+    "priority": "u=1, i"
+}
+cookies = {
+    "cna": "eJpNH+fFQGACAQ6Rg6BAMq4P",
+    "login_current_pk": "1250261700804964",
+    "yunpk": "1579013261242900",
+    "account_info_switch": "close",
+    "cnaui": "%2525E5%2525B4%252594%2525E5%2525A4%2525A7%2525E9%2525BE%252599_aly",
+    "aui": "%2525E5%2525B4%252594%2525E5%2525A4%2525A7%2525E9%2525BE%252599_aly",
+    "aliyun_site": "CN",
+    "help_csrf": "2Z3APxJQTH8zsHE3eY8TA3k5AnVXa%2BNgKMaMuMptW7k7iBXeVK1qPsyYRYR6QdE9tg8g%2ByX4lWLsv%2FjTdAy7KCs9eJH%2BXhj%2FfFxOwueOFYUNP6BYDmmP%2Fd1PDi%2Fy2ntrs%2BabNNBO76WnZuztzEXbIg%3D%3D",
+    "cr_token": "5e6b20e2-ec62-4785-8258-177d31281f98",
+    "tfstk": "gpNruvTp7_Cr10sg7PcF3uGUZFl-wXS1xWiI-y4nP0muOaQU-mrEOz9SPJy4xoHSqpNQ064_cHa5ebZq8la_FXGSOBkncyw7daHBTJr3b0cQF0gn8lahy2NUJBu3-kQ-AaBbyzhKtGs_Y1a8ykOox5VrKrx0kVYkrtMlNvRCWGs11s6koXSPfziTBnkmJm0kZXvluq0tJX0kZkmmnV06qXc3xZkm84-kZQAknq0SmDcnKkmmnm3nt4qntZzmD2czmz4HgVMlzx32XSKOksnarmRHt7fKKc5txqn7gekm0rVPHtQKzYogrmS__EYtnyHU9edECz2TvVqkqGM8--rqzX5XEf44KluYZ1trk8a0vmDD-BUqL0y0Zx8Htr4q4AyU4gJ-q8ZqBqDD813bfm48Z-7pmzqs4b0mh1baov2bwAF5mQlgBzG7KkB6Hbz3EjSrYH30FRVLUHvEEq3qfZ7Viym1Wu7vUaJppxctuc_SPppKE4uqfagWppHmWqo1P41..",
+    "isg": "BEZGJehMU4VGfAhzzKbVgTuxlzzIp4phd3SATTBoM2hsM_NNkTcVcN-FD2__m4J5"
+}
+url = "https://help.aliyun.com/help/json/document_detail.json"
+params = {
+    "alias": "/yunxiao/developer-reference/listdepartmentancestors-query-the-list-of-all-parent-departments-of-a-department-in-an-organization",
+    "pageNum": "1",
+    "pageSize": "20",
+    "website": "cn",
+    "language": "zh",
+    "channel": ""
+}
+response = requests.get(url, headers=headers, cookies=cookies, params=params)
+
+print(response.text)
+print(response)
